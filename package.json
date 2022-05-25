@@ -1,6 +1,9 @@
 {
   "name": "fungible_token_multisender",
   "version": "0.1.0",
+  "engines": {
+    "node": "14.18.1"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "build": "npm run build:web",
