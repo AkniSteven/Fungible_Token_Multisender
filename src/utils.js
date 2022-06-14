@@ -28,7 +28,7 @@ export async function initContract() {
             'multi_storage_deposit'
         ],
     })
-
+    //methods from ft_contract
     window.contractFT = await new Contract(window.walletConnection.account(), nearConfig.ftContractName, {
       viewMethods: ['storage_balance_of'],
       changeMethods: ['ft_transfer', 'ft_transfer_call', 'storage_deposit']  // deposit, storage

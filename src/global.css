@@ -3,21 +3,21 @@
 }
 
 html {
-  --bg: #000000;
-  --fg: #ffffff;
+  --bg: #ffffff;
+  --fg: #000000;
   --gray: #555;
   --light-gray: #ccc;
   --shadow: #e6e6e6;
   --success: rgb(90, 206, 132);
-  --secondary: #4d4f51;
-  --secondary-bg: #ffffff;
+  --secondary: #00c08b;
+  --secondary-bg: #ffb25a;
   --header-font-color: #efefef;
 
   --header-primary-color: #FFF;
   --header-secondary-color: rgb(0, 0, 0);
   --header-nav-height: 50px;
   --footer-height: 34px;
-  --nav-background-color: rgb(77, 75, 76);
+  --nav-background-color: rgb(0, 0, 0);
 
   background-color: var(--bg);
   color: var(--fg);
@@ -59,13 +59,29 @@ main {
 }
 
 h1 {
-  background-image: url(assets/logo-white.svg);
+  text-align: center;
+}
+h2 {
+  background-image: url(/assets/logo-3-b.svg);
+  background-position: center 1em;
+  background-color: var(--secondary-bg);
+  background-repeat: no-repeat;
+  background-size: auto 1.5em;
+  padding: 3.5em 0 0.5em;
+  text-align: center;
+  margin-top: 0;
+}
+
+.lnc{
+  background-image: url(/assets/logo-1-w.svg);
   background-position: center 1em;
   background-repeat: no-repeat;
   background-size: auto 1.5em;
   margin-top: 0;
   padding: 3.5em 0 0.5em;
   text-align: center;
+  height: 50px;
+  width: 150px;
 }
 
 a,
@@ -237,7 +253,7 @@ aside footer *:last-child {
   }
 
   h1 {
-      background-image: url(assets/logo-white.svg);
+      background-image: url(/assets/logo-2-w.svg);
   }
 
   input:focus {
@@ -271,8 +287,9 @@ aside footer *:last-child {
 .balance{
   background-color: black;
   padding: 2px 10px;
-  border-radius: 40px;
-  font-size: 18px;
+  float: right;
+  border-radius: 20px;
+  font-size: 32px;
   color: rgb(143, 214, 189);
 }
 
@@ -294,7 +311,7 @@ aside footer *:last-child {
 .footer {
   width: 100%;
   background-color: var(--secondary);
-  color: var(--fg);
+  color: var(--bg);
   height: 1.5em;
   font-size: 0.8em;
   position: fixed;
@@ -346,6 +363,7 @@ aside footer *:last-child {
 
 .footer .github .brand {
   padding-top: 3px;
+  color: white
 }
 
 /* HEADER */
@@ -407,11 +425,13 @@ aside footer *:last-child {
   align-items: center;
   justify-content: center;
   display: flex;
+  max-height: 50px;
 }
 
 .nav-header .logo-container .app-name {
   padding-right: 10px;
   color: var(--header-primary-color);
+  max-height: 50px;
 }
 
 .nav-header .align-right {
@@ -432,7 +452,7 @@ aside footer *:last-child {
 /* NAV MENU */
 
 .nav-menu .network-icon {
-  background-image: url(/assets/logo-white.svg);
+  background-image: url(/assets/logo-2-w.svg);
   border-radius: 0;
   width: 15px;
   height: 15px;

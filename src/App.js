@@ -9,7 +9,7 @@ import Big from 'big.js';
 import ReactTooltip from 'react-tooltip';
 import ReactFileReader from 'react-file-reader';
 import {useDetectOutsideClick} from "./useDetectOutsideClick";
-import {PublicKey} from 'near-api-js/lib/utils'
+import {PublicKey, serialize} from 'near-api-js/lib/utils'
 import {KeyType} from 'near-api-js/lib/utils/key_pair'
 
 import getConfig from './config'
@@ -20,11 +20,14 @@ const appSettings = getAppSettings();
 
 const FRAC_DIGITS = 11;
 const gas = 300000000000000; 
-
+const multisender_contract = config.contractName;
+//LNC
+const decimals = 18;
+const one_ft_in_decimals = new BN(Math.pow(10, decimals).toString());
 
 //LNC
 function ConvertToYocto(amount) {
-    return new BN(amount).mul(new BN("1000000000000000000")).toString();
+    return new BN(amount).mul(one_ft_in_decimals).toString();
 }
 
 export default function App() {
@@ -33,8 +36,11 @@ export default function App() {
     const [sendButtonUnsafeDisabled, setSendButtonUnsafeDisabled] = React.useState(true);
     const [checkButtonVisibility, setCheckButtonVisibility] = React.useState(false);
     const [depositButtonDisabled, setDepositButtonDisabled] = React.useState(true);
-    const [depositAndSendButtonDisabled, setDepositAndSendButtonDisabled] = React.useState(true);
-    const [depositAndSendButtonVisibility, setDepositAndSendButtonVisibility] = React.useState(true);
+    const [withdrawButtonDisabled, setWithdrawButtonDisabled] = React.useState(true);
+    const [signOutButtonDisabled, setSignOutDisabled] = React.useState(true);
+    const [signOutButtonDisabled, setSignOutButtonDisabled] = React.useState(true);
+    const [checkStorageButtonDisabled, setCheckStorageDisabled] = React.useState(true);
+
     const [textareaPlaceHolderVisibility, setTextareaPlaceHolderVisibility] = React.useState(true);
 
     const [chunkSize, setChunkSize] = React.useState(14); // or 7
@@ -51,6 +57,7 @@ export default function App() {
     const [total, setTotal] = React.useState(0);
     const [deposit_value, setDepositValue] = React.useState(100);
     const [amount, setAmount] = React.useState(0.0);
+    const [verified, setVerified] = React.useState(false);
     const [chunkProcessingIndex, setChunkProcessingIndex] = React.useState(0);
 
     const handleChange = (event) => {
@@ -62,15 +69,20 @@ export default function App() {
         if (checkOtherButtons === undefined)
             checkOtherButtons = false;
 
+        
         const signedIn = window.walletConnection.isSignedIn();
         const accountsLength = accounts ? Object.keys(accounts).length : 0;
+        setSignOutDisabled(!signedIn);
         setDepositButtonDisabled(!signedIn || !accountsLength || total-deposit <= 0  || !total);
-        setSendButtonDisabled(!signedIn || !accountsLength || deposit < total);
-        setSendButtonUnsafeDisabled(!signedIn || !accountsLength || deposit < total);
+        setWithdrawButtonDisabled(!signedIn || !accountsLength || deposit == 0);
+        setSignOutButtonDisabled(!signedIn);
+        setCheckStorageDisabled(!signedIn || !accountsLength || !total || !verified);
+        setDepositButtonDisabled(!signedIn || !accountsLength || !total || deposit-total>=0 || !verified);
+        setWithdrawButtonDisabled(!signedIn || !accountsLength || deposit==0 || !deposit);
+        setSendButtonDisabled(!signedIn || !accountsLength || deposit-total<0 || total==0);
+        setSendButtonUnsafeDisabled(!signedIn || !accountsLength || deposit-total<0 || total==0);
         setCheckButtonVisibility(!signedIn || !accountsLength);
         const allButtonsDisabled = checkOtherButtons && depositButtonDisabled && sendButtonDisabled;
-        setDepositAndSendButtonDisabled(!signedIn || !accountsLength || accountsLength > chunkSize);
-        setDepositAndSendButtonVisibility(allButtonsDisabled || !(!signedIn || !accountsLength));
     };
 
     const getAccountsText = (accounts) => {
@@ -79,15 +91,6 @@ export default function App() {
                 return acc + cur + " " + accounts[cur] + "\r";
             }, "")
             : "";
-    };
-
-    const UploadCSV = files => {
-        const reader = new FileReader();
-        reader.onload = function (_e) {
-            const csv = reader.result.replace(/[, ]+/g, " ").trim(); // remove extra commas
-            parseAmounts(csv)
-        };
-        reader.readAsText(files[0]);
     };
 
     const ParsedAccountsList = () => {
@@ -117,8 +120,13 @@ export default function App() {
                 <div className="nav align-right">
                     <NavMenu/>
                     <div className="account-sign-out">
-                        <button className="link" style={{float: 'right'}} onClick={logout}>
-                            Sign out
+                        <button 
+                            disabled={checkButtonVisibility}
+                            className={`verify-button send-button ${checkButtonVisibility ? "hidden" : ""}`}
+                            disabled={signOutButtonDisabled}
+                            className={`verify-button send-button ${signOutButtonDisabled ? "hidden" : ""}`}
+                            style={{float: 'right'}} onClick={logout}>
+                                Sign out
                         </button>
                     </div>
                 </div>
@@ -129,13 +137,13 @@ export default function App() {
     const Footer = () => {
         return <div className="footer">
             <div className="github">
-                <div className="build-on-near"><a href="https://nearspace.info">BUILD ON NEAR</a></div>
-                <div className="brand">NEAR {appSettings.appNme} | <a href={appSettings.github}
+                <div className="build-on-near"><a href="https://learnnear.club/lnc-barrel/">BUILD IN LNC BARREL</a></div>
+                <div className="brand">LNC {appSettings.appNme} | <a href={appSettings.github}
                                                                       rel="nofollow"
                                                                       target="_blank">Open Source</a></div>
             </div>
             <div className="promo">
-                Made by <a href="https://github.com?YellingOilbird" rel="nofollow" target="_blank">GUACHARO</a>
+                <a>Made by</a> <a href="https://github.com/YellingOilbird" rel="nofollow" target="_blank">GUACHARO</a>
             </div>
         </div>
     };
@@ -144,7 +152,7 @@ export default function App() {
     const Deposit = () => {
         return deposit && Number(deposit) ?
             <div className="nav user-balance" data-tip="Your internal balance in Multisender App">
-                {" App Balance: " + deposit + "LNC"}
+                {" App Balance:     " + deposit + " LNC"}
             </div>
             :
             null;
@@ -152,27 +160,11 @@ export default function App() {
 
     const NearLogo = () => {
         return <div className="logo-container content-desktop">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 414 162" className="near-logo">
-                <g id="Layer_1" data-name="Layer 1">
-                    <path className="polymorph"
-                          d="M207.21,54.75v52.5a.76.76,0,0,1-.75.75H201a7.49,7.49,0,0,1-6.3-3.43l-24.78-38.3.85,19.13v21.85a.76.76,0,0,1-.75.75h-7.22a.76.76,0,0,1-.75-.75V54.75a.76.76,0,0,1,.75-.75h5.43a7.52,7.52,0,0,1,6.3,3.42l24.78,38.24-.77-19.06V54.75a.75.75,0,0,1,.75-.75h7.22A.76.76,0,0,1,207.21,54.75Z"
-                    ></path>
-                    <path className="polymorph"
-                          d="M281,108h-7.64a.75.75,0,0,1-.7-1L292.9,54.72A1.14,1.14,0,0,1,294,54h9.57a1.14,1.14,0,0,1,1.05.72L324.8,107a.75.75,0,0,1-.7,1h-7.64a.76.76,0,0,1-.71-.48l-16.31-43a.75.75,0,0,0-1.41,0l-16.31,43A.76.76,0,0,1,281,108Z"
-                    ></path>
-                    <path className="polymorph"
-                          d="M377.84,106.79,362.66,87.4c8.57-1.62,13.58-7.4,13.58-16.27,0-10.19-6.63-17.13-18.36-17.13H336.71a1.12,1.12,0,0,0-1.12,1.12h0a7.2,7.2,0,0,0,7.2,7.2H357c7.09,0,10.49,3.63,10.49,8.87s-3.32,9-10.49,9H336.71a1.13,1.13,0,0,0-1.12,1.13v26a.75.75,0,0,0,.75.75h7.22a.76.76,0,0,0,.75-.75V87.87h8.33l13.17,17.19a7.51,7.51,0,0,0,6,2.94h5.48A.75.75,0,0,0,377.84,106.79Z"
-                    ></path>
-                    <path className="polymorph"
-                          d="M258.17,54h-33.5a1,1,0,0,0-1,1h0A7.33,7.33,0,0,0,231,62.33h27.17a.74.74,0,0,0,.75-.75V54.75A.75.75,0,0,0,258.17,54Zm0,45.67h-25a.76.76,0,0,1-.75-.75V85.38a.75.75,0,0,1,.75-.75h23.11a.75.75,0,0,0,.75-.75V77a.75.75,0,0,0-.75-.75H224.79a1.13,1.13,0,0,0-1.12,1.13v29.45a1.12,1.12,0,0,0,1.12,1.13h33.38a.75.75,0,0,0,.75-.75v-6.83A.74.74,0,0,0,258.17,99.67Z"
-                    ></path>
-                    <path className="polymorph"
-                          d="M108.24,40.57,89.42,68.5a2,2,0,0,0,3,2.63l18.52-16a.74.74,0,0,1,1.24.56v50.29a.75.75,0,0,1-1.32.48l-56-67A9.59,9.59,0,0,0,47.54,36H45.59A9.59,9.59,0,0,0,36,45.59v70.82A9.59,9.59,0,0,0,45.59,126h0a9.59,9.59,0,0,0,8.17-4.57L72.58,93.5a2,2,0,0,0-3-2.63l-18.52,16a.74.74,0,0,1-1.24-.56V56.07a.75.75,0,0,1,1.32-.48l56,67a9.59,9.59,0,0,0,7.33,3.4h2a9.59,9.59,0,0,0,9.59-9.59V45.59A9.59,9.59,0,0,0,116.41,36h0A9.59,9.59,0,0,0,108.24,40.57Z"
-                    ></path>
-                </g>
-            </svg>
+            <div className="lnc">
+
+            </div>
             <div className="app-name">
-                {appSettings.appNme}
+                 {appSettings.appNme}
             </div>
         </div>;
     };
@@ -267,6 +259,12 @@ export default function App() {
         const depositFormattedInDecimals = (Number(depositFormatted)*1000000).toString();
         setDeposit(depositFormattedInDecimals);
         console.log(depositFormattedInDecimals);
+        setWithdrawButtonDisabled(false);
+        if (depositFormattedInDecimals == 0) {
+            setWithdrawButtonDisabled(true);
+        } else {
+            setWithdrawButtonDisabled(false);
+        }
         return depositFormattedInDecimals;
     };
 
@@ -294,6 +292,7 @@ export default function App() {
                         setAccountsTextArea(getAccountsText(accounts));
                         setTotal(total);
                         setButtonsVisibility(accounts, total, deposit, true);
+                        
                     }
                 });
             }
@@ -311,7 +310,7 @@ export default function App() {
             <>
                 <Header/>
                 <main>
-                    <h1>{appSettings.appNme}</h1>
+                    <h2 style={{backgroundColor: '--secondary-bg'}}>{appSettings.appNme}</h2>
                     <p>
                         {appSettings.appDescription}
                     </p>
@@ -342,11 +341,10 @@ export default function App() {
         <>
             <Header/>
             <main>
-                <div className="background-img"/>
-                <h1>
-                    LNC Token Multisender Tool
-                </h1>
-                
+            <div className="background-img"/>
+                <h2>
+                    Token Multisender Tool
+                </h2>
                 <div className="row">
                     <div className="btn upload-csv-button">
                     <button
@@ -373,9 +371,9 @@ export default function App() {
                     <input
                     style={{ 
                         borderRadius: '10', 
-                        color: '#04AA6D', /* Green background */
+                        color: '#ffb25a', /* Green background */
                         border: '3px solid gray', /* Green border */
-                        color: 'white', /* White text */
+                        color: 'black', /* White text */
                         float: 'right',
                         width: '150px',
                         height: '50px',
@@ -404,9 +402,8 @@ export default function App() {
                         ReactTooltip.hide();
                         const amount = ConvertToYocto(deposit_value);
                         setAmount(amount);
-                        const MULTISENDER_CONTRACT = "dev-1654700510127-80645581213920";
                         await window.contractFT.ft_transfer_call({
-                            receiver_id : MULTISENDER_CONTRACT,
+                            receiver_id : multisender_contract,
                             amount: amount,
                             msg: ""
                         },
@@ -437,7 +434,7 @@ export default function App() {
                                 marginBottom: '0.5em'
                             }}
                         >
-                            Enter one address and amount in token on each line. Supports any format.
+                            Enter one address and amount in token on each line.
                         </label>
                 </div>
 
@@ -455,15 +452,21 @@ export default function App() {
                             {
                                 textareaPlaceHolderVisibility &&
                                 <div className="accounts-placeholder">
-                                    account1.near 3.141592<br/>
+                                    account1.near 3
+                                    <br/>
+                                    <br/>
+                                    <br/> 
+                                    * only supports non-float amounts. floats will rounded automatically!
                                 </div>
                             }
                         </div>
 
                         <div className="action-buttons">
                             <button
-                                disabled={sendButtonDisabled}
+                                disabled={withdrawButtonDisabled}
                                 className={`send-button ${checkButtonVisibility ? "hidden" : ""}`}
+                                disabled={checkStorageButtonDisabled}
+                                className={`send-button ${checkStorageButtonDisabled ? "hidden" : ""}`}
                                 onClick={async event => {
                                     event.preventDefault();
                                     ReactTooltip.hide();
@@ -545,6 +548,8 @@ export default function App() {
                                     console.log("TOTAL_VERIFIED: "+total);
                                     console.log("TOTAL_STORAGE_BOND: "+total_storage_bond);
                                     console.log(nonFundedAccounts);
+                                    setVerified(true);
+                                    //setDepositButtonDisabled(false);
                                     setButtonsVisibility(accounts, total, deposit);
                                     GetDeposit();
 
@@ -566,6 +571,8 @@ export default function App() {
                                 }} 
                             data-tip={"Fund storage for non-registered accounts"}>
                             Check storage balances
+                            data-tip={"Fund storage for non-registered accounts. LIMIT - 50 ACCOUNTS"}
+                            Check storage balances *
                             </button>
                             <button
                                 disabled={checkButtonVisibility}
@@ -624,7 +631,8 @@ export default function App() {
                                     setAccounts(validAccountsFiltered);
                                     setAccountsTextArea(getAccountsText(validAccountsFiltered));
                                     setTotal(total);
-                                    setButtonsVisibility(validAccountsFiltered, total);
+                                    setCheckStorageDisabled(false);
+                                    setButtonsVisibility(validAccountsFiltered, 0, deposit);
 
                                     fieldset.disabled = false
                                     // show Notification
@@ -644,6 +652,7 @@ export default function App() {
                                     setTimeout(() => {
                                         setShowNotification("")
                                     }, 11000)
+                                    setCheckStorageDisabled(false);
                                 }}
                                 data-tip={"Remove invalid accounts from the list"}>
                                 Verify accounts
@@ -808,8 +817,9 @@ export default function App() {
                                         fieldset.disabled = false
                                     }
                                 }}
-                                data-tip={"Multi send to all recipients using your internal balance by 10 txs. BETTER GAS EFFICIENCY BY IGNORING TRANSFER STATUS. Always Verify Accounts before."}>
-                                Send Unsafe from App Balance
+                                data-tip={"Multi send to all recipients using your internal balance by 25 txs. BETTER GAS EFFICIENCY BY IGNORING TRANSFER STATUS. Always Verify Accounts before."}>
+                                Send Unsafe from App Balance / 
+                                max_Chunk_size = 25 
                             </button>
 
                             <button
@@ -831,9 +841,8 @@ export default function App() {
 
                                         const amount = ConvertToYocto((total - deposit));
                                         setAmount(amount);
-                                        const MULTISENDER_CONTRACT = "dev-1654700510127-80645581213920";
                                         await window.contractFT.ft_transfer_call({
-                                            receiver_id : MULTISENDER_CONTRACT,
+                                            receiver_id : multisender_contract,
                                             amount: amount,
                                             msg: ""
                                         },
@@ -856,8 +865,9 @@ export default function App() {
                             </button>
 
                             <button
-                            disabled = {depositButtonDisabled}
-                            className = {`deposit-button ${depositButtonDisabled ? "hidden" : ""}`}
+                            disabled = {withdrawButtonDisabled}
+                            className = {`deposit-button ${checkButtonVisibility ? "hidden" : ""}`}
+                            className = {`deposit-button ${withdrawButtonDisabled ? "hidden" : ""}`}
                                 onClick={ async event => {
                                     event.preventDefault()
                                     ReactTooltip.hide();
