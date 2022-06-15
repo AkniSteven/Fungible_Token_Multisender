@@ -71,8 +71,8 @@ export default function App() {
         const signedIn = window.walletConnection.isSignedIn();
         const accountsLength = accounts ? Object.keys(accounts).length : 0;
         setSignOutButtonDisabled(!signedIn);
-        setCheckStorageDisabled(!signedIn || !accountsLength || !total || !verified);
-        setDepositButtonDisabled(!signedIn || !accountsLength || !total || deposit-total>=0 || !verified);
+        setCheckStorageDisabled(!signedIn || !accountsLength || !verified);
+        setDepositButtonDisabled(!signedIn || !accountsLength || !total || deposit-total>=0);
         setWithdrawButtonDisabled(!signedIn || !accountsLength || deposit==0 || !deposit);
         setSendButtonDisabled(!signedIn || !accountsLength || deposit-total<0 || total==0);
         setSendButtonUnsafeDisabled(!signedIn || !accountsLength || deposit-total<0 || total==0);
@@ -233,7 +233,9 @@ export default function App() {
         if (!pasteInProgress) {
             setAccountsTextArea(input);
         }
-        setButtonsVisibility(accounts, total, deposit, true);
+        if (verified == true) {
+            setButtonsVisibility(accounts, total, deposit, true);
+        } 
     };
 
     const ActionButtons = useRef(null)
@@ -282,8 +284,10 @@ export default function App() {
                         setTextareaPlaceHolderVisibility(false);
                         setAccounts(accounts);
                         setAccountsTextArea(getAccountsText(accounts));
-                        setTotal(total);
-                        setButtonsVisibility(accounts, total, deposit, true);
+                        if (verified == true) {
+                            setTotal(total);
+                            setButtonsVisibility(accounts, total, deposit, true);
+                        }
                     }
                 });
             }
@@ -521,14 +525,20 @@ export default function App() {
                                     console.log("TOTAL_STORAGE_BOND: "+total_storage_bond);
                                     console.log(nonFundedAccounts);
 
-                                  if (funded > 0)
+                                  if (funded > 0) {
                                         await new Promise ((res, _rej) => {
                                             window.contract.multi_storage_deposit({
                                                 accounts: nonFundedAccounts
                                             }, 
                                             gas, total_storage_bond);
                                             setTimeout(res, 1000);
+                                            setVerified(true);
+                                            setShowNotification({
+                                                method: "text",
+                                                data: `Registered ${funded} account(s)`
+                                            });
                                         });
+                                  };
                                   delay(1000).then(() => {    
                                     setAccounts(accounts);
                                     setAccountsTextArea(getAccountsText(accounts));
@@ -548,14 +558,13 @@ export default function App() {
                                         method: "text",
                                         data: `All accounts are registered`
                                     });
-
                                     if (total)
                                         scrollToBottom();
                                     // remove Notification again after css animation completes
                                     // this allows it to be shown again next time the form is submitted
                                     setTimeout(() => {
                                         setShowNotification("")
-                                    }, 11000)
+                                    }, 11000);
                                   })
                                 }} 
                             data-tip={"Fund storage for non-registered accounts LIMIT 50 ACCOUNTS"}>
@@ -618,7 +627,6 @@ export default function App() {
                                     setAccounts(validAccountsFiltered);
                                     setAccountsTextArea(getAccountsText(validAccountsFiltered));
                                     setTotal(total);
-                                    setCheckStorageDisabled(false);
                                     setButtonsVisibility(validAccountsFiltered, 0, deposit);
 
                                     fieldset.disabled = false
@@ -638,7 +646,8 @@ export default function App() {
                                     // this allows it to be shown again next time the form is submitted
                                     setTimeout(() => {
                                         setShowNotification("")
-                                    }, 11000)
+                                    }, 11000);
+                                    setCheckStorageDisabled(false);
                                 }}
                                 data-tip={"Remove invalid accounts from the list"}>
                                 Verify accounts
